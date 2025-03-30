@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useWebhook } from '../context/WebhookContext';
+import { toast, Toaster } from 'react-hot-toast';
 
 function SendWebhook() {
-  const { sendWebhook } = useWebhook();
   const [url, setUrl] = useState('');
   const [method, setMethod] = useState('POST');
   const [headers, setHeaders] = useState([{ key: 'Content-Type', value: 'application/json' }]);
@@ -40,32 +39,78 @@ function SendWebhook() {
     });
 
     try {
-      // Parse body if it's JSON
-      let parsedBody;
-      try {
-        parsedBody = JSON.parse(bodyContent);
-      } catch (e) {
-        parsedBody = bodyContent;
+      // Prepare request options
+      const requestOptions = {
+        method,
+        headers: headerObj,
+      };
+
+      // Handle the body for non-GET requests
+      if (method !== 'GET') {
+        // Check if we're sending JSON
+        const contentType = headerObj['Content-Type'] || '';
+        if (contentType.includes('application/json')) {
+          // Validate and parse JSON before sending
+          try {
+            // Parse and stringify to validate JSON
+            console.log(typeof bodyContent)
+            const jsonBody = JSON.parse(bodyContent);
+            console.log(typeof jsonBody)
+            requestOptions.body = JSON.stringify(jsonBody);
+          } catch (jsonError) {
+            toast.error('Invalid JSON in body');
+            throw new Error(`Invalid JSON in body: ${jsonError.message}`);
+            
+          }
+        } else {
+          // For other content types, send as is
+          requestOptions.body = bodyContent;
+        }
       }
 
-      const response = await sendWebhook(url, method, headerObj, parsedBody);
-      setResult(response);
+      // Make the request using fetch
+      const response = await fetch(url, requestOptions);
+
+      // Read the response as text first
+      const responseText = await response.text();
+      let responseData = responseText;
+
+      // Try to parse as JSON if possible
+      try {
+        if (responseText && responseText.trim()) {
+          responseData = JSON.parse(responseText);
+        }
+      } catch (err) {
+        // If not JSON, keep as text
+        console.log('Response is not JSON:', responseText);
+      }
+
+      setResult({
+        status: response.status,
+        headers: Object.fromEntries([...response.headers.entries()]),
+        data: responseData
+      });
+      
+      toast.success('Webhook Sent Successfully');
     } catch (error) {
-      setError(error.response?.data?.message || error.message || 'Failed to send webhook');
+      console.error('Error sending webhook:', error);
+      setError(error.message || 'Failed to send webhook');
+      toast.error('Failed to Send Webhook');
     } finally {
       setLoading(false);
     }
   };
-
+    
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <Toaster position="top-right" />
       <div className="p-6 border-b">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Send Webhook</h1>
         <p className="text-gray-600">Use this form to send a webhook request to any URL.</p>
       </div>
 
-      <div className="grid grid-cols-2">
-        <form onSubmit={handleSubmit} className="p-6 w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+        <form onSubmit={handleSubmit} className="w-full">
           {/* URL Field */}
           <div className="mb-6">
             <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
@@ -104,9 +149,7 @@ function SendWebhook() {
           {/* Headers Section */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-gray-700">
-                Headers
-              </label>
+              <label className="block text-sm font-medium text-gray-700">Headers</label>
               <button
                 type="button"
                 onClick={addHeader}
@@ -148,8 +191,6 @@ function SendWebhook() {
             ))}
           </div>
 
-        
-        
           {/* Body Section */}
           <div className="mb-6">
             <label htmlFor="body" className="block text-sm font-medium text-gray-700 mb-1">
@@ -187,49 +228,47 @@ function SendWebhook() {
         </form>
 
         {/* Response Section */}
-      <div className="px-6 pb-6">
-        {loading === false && !result && !error && (
-          <div className="text-gray-600 text-center py-4">Please send a webhook request.</div>
-        )}
+        <div className="px-6 pb-6">
+          {loading === false && !result && !error && (
+            <div className="text-gray-600 text-center py-4">Please send a webhook request.</div>
+          )}
 
-        {(result || error) && (
-          <div className="mt-4">
-            <h2 className="text-lg font-medium text-gray-800 mb-2">Response</h2>
-            {error ? (
-              <div className="bg-red-50 p-4 rounded-md border border-red-200">
-                <h3 className="text-red-800 font-medium">Error</h3>
-                <p className="text-red-700">{error}</p>
-              </div>
-            ) : (
-              <div className="bg-green-50 p-4 rounded-md border border-green-200">
-                <div className="flex justify-between items-start">
-                  <h3 className="text-green-800 font-medium">Success</h3>
-                  <span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded">
-                    {result.status}
-                  </span>
+          {(result || error) && (
+            <div className="mt-4">
+              <h2 className="text-lg font-medium text-gray-800 mb-2">Response</h2>
+              {error ? (
+                <div className="bg-red-50 p-4 rounded-md border border-red-200">
+                  <h3 className="text-red-800 font-medium">Error</h3>
+                  <p className="text-red-700">{error}</p>
                 </div>
-                <div className="mt-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Response Headers</h4>
-                  <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
-                    {Object.entries(result.headers).map(([key, value]) => (
-                      `${key}: ${value}\n`
-                    ))}
-                  </pre>
+              ) : (
+                <div className="bg-green-50 p-4 rounded-md border border-green-200">
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-green-800 font-medium">Success</h3>
+                    <span className="text-sm font-medium bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                      {result.status}
+                    </span>
+                  </div>
+                  <div className="mt-2">
+                    <h4 className="text-sm font-medium text-gray-700 mb-1">Response Headers</h4>
+                    <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
+                      {result?.headers && Object?.entries(result?.headers)?.map(([key, value]) => (
+                        `${key}: ${value}\n`
+                      ))}
+                    </pre>
+                  </div>
+                  <div className="mt-2">
+                    <h4 className="text-sm font-medium text-gray-700 mb-1">Response Body</h4>
+                    <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
+                      {typeof result?.data === 'object' ? JSON.stringify(result?.data, null, 2) : result?.data}
+                    </pre>
+                  </div>
                 </div>
-                <div className="mt-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-1">Response Body</h4>
-                  <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
-                    {typeof result.data === 'object' ? JSON.stringify(result.data, null, 2) : result.data}
-                  </pre>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      </div>
-
-      
     </div>
   );
 }
