@@ -4,9 +4,11 @@ import axios from 'axios';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import axiosInstance from '../axiosConfig';
+import { useWebhook } from '../context/WebhookContext';
 
 function RequestDetails() {
   const { id } = useParams();
+  const { userId } = useWebhook();
   const [webhook, setWebhook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -15,7 +17,9 @@ function RequestDetails() {
   useEffect(() => {
     const fetchWebhook = async () => {
       try {
-        const response = await axiosInstance.get(`/webhooks/${id}`);
+        const response = await axiosInstance.get(`/webhooks/${id}`,{
+          headers: { 'X-Client-ID': userId }
+        });
         setWebhook(response.data);
         setLoading(false);
       } catch (error) {
