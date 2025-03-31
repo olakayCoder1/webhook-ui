@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import axiosInstance from '../axiosConfig';
 import { useWebhook } from '../context/WebhookContext';
+import WebhookReplay from './WebhookReplay';
+import toast from 'react-hot-toast';
 
 function RequestDetails() {
   const { id } = useParams();
-  const { userId } = useWebhook();
+  const navigate = useNavigate();
+  const { userId, deleteWebhook } = useWebhook();
   const [webhook, setWebhook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,6 +32,10 @@ function RequestDetails() {
     
     fetchWebhook();
   }, [id]);
+
+
+  // Determine if the webhook is a replay
+  const isReplay = webhook && webhook?.replayOf;
   
   if (loading) {
     return (
@@ -87,35 +93,7 @@ function RequestDetails() {
   const formatHeaders = (headers) => {
     return Object.entries(headers).map(([key, value]) => `${key}: ${value}`).join('\n');
   };
-  
-//   const detectContentType = (body, headers) => {
-//     console.log(headers)
-//     console.log(headers)
-//     // Check Content-Type header
-//     const contentType = headers['content-type'] || headers['Content-Type'] || '';
-    
-//     if (contentType.includes('application/json')) {
-//       return 'json';
-//     } else if (contentType.includes('application/xml') || contentType.includes('text/xml')) {
-//       return 'xml';
-//     } else if (contentType.includes('text/html')) {
-//       return 'html';
-//     } else if (contentType.includes('text/plain')) {
-//       return 'text';
-//     }
-    
-//     // Try to detect based on content
-//     try {
-//       JSON.parse(body);
-//       return 'json';
-//     } catch (e) {
-//       if (body.trim().startsWith('<') && body.trim().endsWith('>')) {
-//         return 'xml';
-//       }
-//       return 'text';
-//     }
-//   };
-const detectContentType = (body, headers) => {
+  const detectContentType = (body, headers) => {
     console.log(headers);
   
     // Check Content-Type header
@@ -161,7 +139,33 @@ const detectContentType = (body, headers) => {
           Back to Dashboard
         </Link>
       </div>
-      
+      <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-800">
+          {isReplay ? 'Webhook Replay' : 'Webhook Details'}
+        </h1>
+        <div>
+          <button
+            onClick={() => {
+              deleteWebhook(webhook.id)
+              toast.success(
+                'Webhook deleted successfully',
+              )
+              navigate('/')
+            }}
+            className="px-3 py-1 cursor-pointer bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 mr-2"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+      {isReplay && (
+        <div className="bg-indigo-50 p-3 rounded-md mb-4 border border-indigo-200">
+          <p className="text-indigo-700">
+            This is a replayed webhook. Original webhook received at{' '}
+            <span className="font-medium">{new Date(webhook.originalTimestamp).toLocaleString()}</span>
+          </p>
+        </div>
+      )}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-6 border-b">
           <div className="flex justify-between items-start">
@@ -287,6 +291,9 @@ const detectContentType = (body, headers) => {
             )}
           </div>
         </div>
+        {!isReplay && (
+          <WebhookReplay webhook={webhook} />
+        )}
       </div>
     </div>
   );

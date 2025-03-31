@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
 import RequestTemplates from './RequestTemplates';
 
@@ -10,6 +10,7 @@ function SendWebhook() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const fileInputRef = useRef(null);
 
   // Get current request for saving as a template
   const getCurrentRequest = () => {
@@ -33,6 +34,77 @@ function SendWebhook() {
     const newHeaders = [...headers];
     newHeaders[index][field] = value;
     setHeaders(newHeaders);
+  };
+
+  // Export configuration to a JSON file
+  const exportConfiguration = () => {
+    const config = {
+      url,
+      method,
+      headers,
+      body: bodyContent,
+      exportDate: new Date().toISOString()
+    };
+
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `webhook-config-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast.success('Configuration exported successfully');
+  };
+
+  // Trigger file input click
+  const triggerImportFile = () => {
+    fileInputRef.current.click();
+  };
+
+  // Import configuration from a JSON file
+  const importConfiguration = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const config = JSON.parse(e.target.result);
+        
+        // Validate the imported configuration
+        if (!config.url || !config.method) {
+          throw new Error('Invalid configuration file');
+        }
+        
+        // Update state with imported configuration
+        setUrl(config.url || '');
+        setMethod(config.method || 'POST');
+        
+        // Handle headers
+        if (config.headers && Array.isArray(config.headers)) {
+          setHeaders(config.headers);
+        } else {
+          setHeaders([{ key: 'Content-Type', value: 'application/json' }]);
+        }
+        
+        // Handle body
+        if (config.body) {
+          setBodyContent(config.body);
+        }
+        
+        toast.success('Configuration imported successfully');
+      } catch (err) {
+        console.error('Error importing configuration:', err);
+        toast.error('Failed to import configuration');
+      }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
   };
 
   const handleSubmit = async (e) => {
@@ -152,8 +224,38 @@ function SendWebhook() {
       />
       
       <div className="p-6 border-b">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Send Webhook</h1>
-        <p className="text-gray-600">Use this form to send a webhook request to any URL.</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">Send Webhook</h1>
+            <p className="text-gray-600">Use this form to send a webhook request to any URL.</p>
+          </div>
+          
+          {/* Export/Import Buttons */}
+          <div className="flex space-x-2">
+            {/* <button
+              type="button"
+              onClick={exportConfiguration}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Export Config
+            </button> */}
+            <button
+              type="button"
+              onClick={triggerImportFile}
+              className="px-3 py-2 cursor-pointer bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Import Config
+            </button>
+            {/* Hidden file input for import */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={importConfiguration}
+              accept=".json"
+              className="hidden"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
@@ -227,7 +329,7 @@ function SendWebhook() {
                 <button
                   type="button"
                   onClick={() => removeHeader(index)}
-                  className="px-2 py-2 text-red-600 hover:text-red-800"
+                  className="px-2 py-2 cursor-pointer text-red-600 hover:text-red-800"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -254,7 +356,7 @@ function SendWebhook() {
             <button
               type="submit"
               disabled={loading}
-              className={`px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`px-4 py-2 cursor-pointer bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {loading ? (
                 <span className="flex items-center">

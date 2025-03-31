@@ -65,7 +65,7 @@ function WebhookListItem({ webhook }) {
           </Link>
           <button
             onClick={() => deleteWebhook(webhook.id)}
-            className="text-red-600 hover:text-red-900"
+            className="text-red-600 cursor-pointer hover:text-red-900"
             title="Delete"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
