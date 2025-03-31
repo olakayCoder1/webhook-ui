@@ -277,8 +277,7 @@ function RequestDetails() {
                     Copy
                   </button>
                 </div>
-                
-                {Object.keys(webhook.query).length > 0 ? (
+                {webhook?.query  && Object.keys(webhook.query).length > 0 ? (
                   <SyntaxHighlighter language="json" style={tomorrow} customStyle={{ borderRadius: '0.375rem' }}>
                     {formatJSON(webhook.query)}
                   </SyntaxHighlighter>
