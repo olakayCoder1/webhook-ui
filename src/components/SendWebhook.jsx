@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
+import RequestTemplates from './RequestTemplates';
 
 function SendWebhook() {
   const [url, setUrl] = useState('');
@@ -9,6 +10,16 @@ function SendWebhook() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  // Get current request for saving as a template
+  const getCurrentRequest = () => {
+    return {
+      url,
+      method,
+      headers,
+      body: bodyContent
+    };
+  };
 
   const addHeader = () => {
     setHeaders([...headers, { key: '', value: '' }]);
@@ -53,14 +64,11 @@ function SendWebhook() {
           // Validate and parse JSON before sending
           try {
             // Parse and stringify to validate JSON
-            console.log(typeof bodyContent)
             const jsonBody = JSON.parse(bodyContent);
-            console.log(typeof jsonBody)
             requestOptions.body = JSON.stringify(jsonBody);
           } catch (jsonError) {
             toast.error('Invalid JSON in body');
             throw new Error(`Invalid JSON in body: ${jsonError.message}`);
-            
           }
         } else {
           // For other content types, send as is
@@ -100,10 +108,49 @@ function SendWebhook() {
       setLoading(false);
     }
   };
+
+  // Load template function to be passed to RequestTemplates
+  const loadTemplate = (template) => {
+    setUrl(template.url || '');
+    setMethod(template.method || 'POST');
     
+    // Handle headers
+    if (template.headers && Array.isArray(template.headers)) {
+      setHeaders(template.headers);
+    } else {
+      // Convert header object to array format if needed
+      const headerArray = [];
+      if (template.headers) {
+        Object.entries(template.headers).forEach(([key, value]) => {
+          headerArray.push({ key, value });
+        });
+        setHeaders(headerArray.length ? headerArray : [{ key: 'Content-Type', value: 'application/json' }]);
+      } else {
+        setHeaders([{ key: 'Content-Type', value: 'application/json' }]);
+      }
+    }
+    
+    // Handle body
+    if (template.body) {
+      if (typeof template.body === 'object') {
+        setBodyContent(JSON.stringify(template.body, null, 2));
+      } else {
+        setBodyContent(template.body);
+      }
+    } else {
+      setBodyContent('');
+    }
+  };
+  
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <Toaster position="top-right" />
+      <Toaster position="top-right" />
+
+      <RequestTemplates 
+        currentRequest={getCurrentRequest()} 
+        loadTemplate={loadTemplate} 
+      />
+      
       <div className="p-6 border-b">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Send Webhook</h1>
         <p className="text-gray-600">Use this form to send a webhook request to any URL.</p>
@@ -161,7 +208,6 @@ function SendWebhook() {
                 Add Header
               </button>
             </div>
-
             {headers.map((header, index) => (
               <div key={index} className="flex space-x-2 mb-2">
                 <input
@@ -190,7 +236,6 @@ function SendWebhook() {
               </div>
             ))}
           </div>
-
           {/* Body Section */}
           <div className="mb-6">
             <label htmlFor="body" className="block text-sm font-medium text-gray-700 mb-1">
@@ -204,7 +249,6 @@ function SendWebhook() {
               onChange={(e) => setBodyContent(e.target.value)}
             />
           </div>
-
           {/* Submit Button */}
           <div className="flex justify-end">
             <button
@@ -226,9 +270,8 @@ function SendWebhook() {
             </button>
           </div>
         </form>
-
         {/* Response Section */}
-        <div className="px-6 pb-6">
+        <div>
           {loading === false && !result && !error && (
             <div className="text-gray-600 text-center py-4">Please send a webhook request.</div>
           )}
@@ -252,7 +295,7 @@ function SendWebhook() {
                   <div className="mt-2">
                     <h4 className="text-sm font-medium text-gray-700 mb-1">Response Headers</h4>
                     <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
-                      {result?.headers && Object?.entries(result?.headers)?.map(([key, value]) => (
+                      {result?.headers && Object.entries(result.headers).map(([key, value]) => (
                         `${key}: ${value}\n`
                       ))}
                     </pre>
@@ -260,7 +303,7 @@ function SendWebhook() {
                   <div className="mt-2">
                     <h4 className="text-sm font-medium text-gray-700 mb-1">Response Body</h4>
                     <pre className="bg-gray-800 p-3 rounded-md text-xs text-gray-200 overflow-x-auto">
-                      {typeof result?.data === 'object' ? JSON.stringify(result?.data, null, 2) : result?.data}
+                      {typeof result?.data === 'object' ? JSON.stringify(result.data, null, 2) : result?.data}
                     </pre>
                   </div>
                 </div>

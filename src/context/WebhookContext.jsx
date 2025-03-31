@@ -16,6 +16,7 @@ export function WebhookProvider({ children }) {
   const [userId, setUserId] = useState(
     localStorage.getItem('userId') || ''
   );
+  const [sentRequests, setSentRequests] = useState([]);
   
   useEffect(() => {
     // Generate or retrieve user unique URL and ID
@@ -59,7 +60,14 @@ export function WebhookProvider({ children }) {
     }
 
 
+    // Load sent requests from localStorage
+    const savedSentRequests = localStorage.getItem('sentWebhookRequests');
+    if (savedSentRequests) {
+      setSentRequests(JSON.parse(savedSentRequests));
+    }
 
+
+    
 
     // Fallback polling mechanism
     const intervalId = setInterval(async () => {
@@ -80,6 +88,16 @@ export function WebhookProvider({ children }) {
       clearInterval(intervalId);
     };
   }, [userId]);
+
+
+
+  // Save sent requests to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('sentWebhookRequests', JSON.stringify(sentRequests));
+  }, [sentRequests]);
+
+
+
   
   const deleteWebhook = async (id) => {
     try {
@@ -141,7 +159,9 @@ export function WebhookProvider({ children }) {
     clearWebhooks,
     sendWebhook,
     resetUser,
-    userId
+    userId,
+    sentRequests,
+    // addSentRequest,
   };
   
   return (
