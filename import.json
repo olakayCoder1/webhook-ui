@@ -1,5 +1,5 @@
 {
-    "url": "https://api.example.com/webhooks/incoming",
+    "url": "https://webhook-me.vercel.app/webhook/ceaa6162-8197-4acd-be43-bf86b55328ff",
     "method": "POST",
     "headers": [
       {
